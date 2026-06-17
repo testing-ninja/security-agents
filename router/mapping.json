@@ -1,0 +1,93 @@
+{
+  "version": "1.0.0",
+  "repository": "testing-ninja/security-agents",
+  "agents": {
+    "sql-injection": {
+      "id": "sql-injection",
+      "display_name": "SQL Injection Agent",
+      "path": "agents/sql-injection",
+      "domains": ["sql_injection", "sqli"],
+      "priority": 10
+    },
+    "authentication": {
+      "id": "authentication",
+      "display_name": "Authentication Agent",
+      "path": "agents/authentication",
+      "domains": ["authentication", "secrets", "session"],
+      "priority": 9
+    },
+    "authorization": {
+      "id": "authorization",
+      "display_name": "Authorization Agent",
+      "path": "agents/authorization",
+      "domains": ["authorization", "access_control"],
+      "priority": 9
+    },
+    "xss": {
+      "id": "xss",
+      "display_name": "Cross-Site Scripting Agent",
+      "path": "agents/xss",
+      "domains": ["xss", "html_injection"],
+      "priority": 8
+    },
+    "csrf": {
+      "id": "csrf",
+      "display_name": "CSRF Agent",
+      "path": "agents/csrf",
+      "domains": ["csrf", "xsrf"],
+      "priority": 8
+    }
+  },
+  "routes": [
+    {
+      "agent": "sql-injection",
+      "sources": ["semgrep", "diff-heuristic", "semgrep-timeout"],
+      "match": {
+        "type": ["sql", "sqli", "injection", "spring-sqli", "formatted-sql", "tainted-sql", "jdbc", "preparedstatement", "possible_sql_injection"],
+        "summary": ["sql injection", "sql statement", "prepared statement", "dynamic sql", "raw sql"]
+      }
+    },
+    {
+      "agent": "xss",
+      "sources": ["semgrep", "diff-heuristic", "semgrep-timeout"],
+      "match": {
+        "type": ["xss", "innerhtml", "dangerouslysetinnerhtml", "html-injection", "possible_xss"],
+        "summary": ["cross-site scripting", "xss", "innerhtml", "raw html", "unescaped output", "script output"]
+      }
+    },
+    {
+      "agent": "csrf",
+      "sources": ["semgrep", "diff-heuristic", "semgrep-timeout"],
+      "match": {
+        "type": ["csrf", "xsrf", "possible_csrf_weakening"],
+        "summary": ["csrf", "cross-site request forgery", "csrf protection", "csrf disable"]
+      }
+    },
+    {
+      "agent": "authentication",
+      "sources": ["semgrep", "gitleaks", "diff-heuristic"],
+      "match": {
+        "type": ["secret", "token", "password", "credential", "api-key", "apikey", "bcrypt", "jwt", "session", "authn", "possible_authn_weakening", "hardcoded"],
+        "summary": ["secret", "api key", "password", "credential", "token", "authentication", "hardcoded", "bypass authentication", "trust all"]
+      }
+    },
+    {
+      "agent": "authorization",
+      "sources": ["semgrep", "diff-heuristic", "semgrep-timeout"],
+      "match": {
+        "type": ["authz", "authorization", "permitall", "access-control", "rbac", "acl", "possible_authz_bypass"],
+        "summary": ["authorization", "access control", "permit all", "privilege", "permission", "role bypass", "allow all"]
+      }
+    }
+  ],
+  "payload_category_map": {
+    "SQL_Injection": "sql-injection",
+    "XSS": "xss",
+    "CSRF": "csrf",
+    "CSRF_Weakening": "csrf",
+    "Hardcoded_Secret": "authentication",
+    "Authentication": "authentication",
+    "Authorization": "authorization"
+  },
+  "default_agent": "authentication"
+}
