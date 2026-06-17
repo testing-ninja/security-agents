@@ -68,7 +68,76 @@ def agent_type_label(agent_id: str) -> str:
         "authorization": "possible_authz_bypass",
         "xss": "possible_xss",
         "csrf": "possible_csrf_weakening",
+        "resource-leak": "possible_resource_leak",
     }.get(agent_id, agent_id)
+
+
+CLEANUP_RE = re.compile(
+    r"\b(close\w*|\.close\s*\(|try-with-resources)\b",
+    re.IGNORECASE,
+)
+
+
+def normalize_cleanup_line(line: str) -> str:
+    """Normalize a cleanup line for pairing removed active close vs commented added close."""
+    s = line.strip()
+    s = re.sub(r"^\s*//\s*", "", s)
+    s = re.sub(r"^\s*/\*\s*", "", s)
+    s = re.sub(r"\s*\*/\s*$", "", s)
+    s = re.sub(r"^\s*#\s*", "", s)
+    return re.sub(r"\s+", "", s).lower()
+
+
+def detect_disabled_resource_cleanup(removed: list[str], added: list[str]) -> list[str]:
+    """When active cleanup is removed and the same call appears commented in added lines."""
+    removed_cleanups: dict[str, str] = {}
+    for line in removed:
+        if not CLEANUP_RE.search(line):
+            continue
+        norm = normalize_cleanup_line(line)
+        if norm and "close" in norm:
+            removed_cleanups[norm] = line.strip()
+
+    hits: list[str] = []
+    for line in added:
+        stripped = line.strip()
+        if not (
+            stripped.startswith("//")
+            or stripped.startswith("/*")
+            or (stripped.startswith("#") and "close" in stripped.lower())
+        ):
+            continue
+        norm = normalize_cleanup_line(line)
+        if norm in removed_cleanups:
+            hits.append(removed_cleanups[norm][:80])
+    return hits
+
+
+def apply_structural_rules(
+    removed: list[str],
+    added: list[str],
+    mapping: dict[str, Any],
+) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for rule in mapping.get("structural_rules", []):
+        if rule.get("rule") != "disabled_cleanup":
+            continue
+        matched = detect_disabled_resource_cleanup(removed, added)
+        if not matched:
+            continue
+        agent_id = rule.get("agent", "resource-leak")
+        results.append({
+            "agent": agent_id,
+            "type": rule.get("type", agent_type_label(agent_id)),
+            "severity": rule.get("severity", "medium"),
+            "summary": rule.get(
+                "summary",
+                "Resource cleanup disabled in PR (active close removed and commented out)",
+            ),
+            "matched_patterns": matched[:5],
+            "structural_rule": rule.get("rule"),
+        })
+    return results
 
 
 def analyze_compact_diff(
@@ -115,8 +184,32 @@ def analyze_compact_diff(
         removed = [ln[1:] for ln in diff_lines if ln.startswith("-") and not ln.startswith("---")]
         blob = " ".join(added + removed).lower()
 
-        if not blob.strip():
+        if not blob.strip() and not (removed or added):
             continue
+
+        for structural in apply_structural_rules(removed, added, mapping):
+            agent_id = structural.get("agent", "resource-leak")
+            vuln_type = structural.get("type", agent_type_label(agent_id))
+            key = (full_path, agent_id, vuln_type)
+            if key in seen:
+                continue
+            seen.add(key)
+
+            matched = structural.get("matched_patterns", [])
+            findings.append({
+                "tool": "diff-heuristic",
+                "type": vuln_type,
+                "severity": structural.get("severity", "medium"),
+                "file": full_path,
+                "line": line_hint,
+                "summary": (
+                    f"PR diff in {basename}: {structural.get('summary', vuln_type)}"
+                    + (f" ({', '.join(matched[:2])})" if matched else "")
+                )[:200],
+                "agent": agent_id,
+                "matched_patterns": matched,
+                "structural_rule": structural.get("structural_rule"),
+            })
 
         for route in routes:
             agent_id = route.get("agent", "")

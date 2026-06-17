@@ -36,6 +36,13 @@
       "path": "agents/csrf",
       "domains": ["csrf", "xsrf"],
       "priority": 8
+    },
+    "resource-leak": {
+      "id": "resource-leak",
+      "display_name": "Resource Leak Agent",
+      "path": "agents/resource-leak",
+      "domains": ["resource_leak", "availability", "dos"],
+      "priority": 9
     }
   },
   "routes": [
@@ -80,6 +87,24 @@
         "summary": ["authorization", "access control", "permit all", "privilege", "permission", "role bypass", "allow all"]
       },
       "diff_patterns": ["@pathvariable", "accountid", "preauthorize", "hasrole", "hasauthority", "permitall", "skipauthorization", "access denied"]
+    },
+    {
+      "agent": "resource-leak",
+      "sources": ["semgrep", "diff-heuristic", "semgrep-timeout"],
+      "match": {
+        "type": ["resource", "resource_leak", "resource-leak", "leak", "cwe-772", "cwe-400", "possible_resource_leak", "unclosed", "connection leak"],
+        "summary": ["resource leak", "connection leak", "unclosed", "close resource", "pool exhaustion", "denial of service", "cleanup disabled", "finally block"]
+      },
+      "diff_patterns": ["closeresource", "close(", ".close(", "finally", "try-with-resources", "connection.close", "statement.close"]
+    }
+  ],
+  "structural_rules": [
+    {
+      "agent": "resource-leak",
+      "type": "possible_resource_leak",
+      "rule": "disabled_cleanup",
+      "severity": "medium",
+      "summary": "Resource cleanup disabled in PR (active close removed and commented out)"
     }
   ],
   "payload_category_map": {
@@ -89,7 +114,8 @@
     "CSRF_Weakening": "csrf",
     "Hardcoded_Secret": "authentication",
     "Authentication": "authentication",
-    "Authorization": "authorization"
+    "Authorization": "authorization",
+    "Resource_Leak": "resource-leak"
   },
   "default_agent": "authentication"
 }
