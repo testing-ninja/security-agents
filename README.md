@@ -18,6 +18,18 @@ Each domain contains:
 - **skill.md** — Domain expertise and remediation techniques
 - **rule.md** — Validation rules, severity, confidence, fix criteria
 
+## Diff heuristics (mapping-driven)
+
+PR compact diff is analyzed using patterns from `router/mapping.json` (`diff_patterns` per agent). No PR-specific hardcoding.
+
+```bash
+python3 router/diff_analyze.py \
+  --compact ../artifacts/pr_compact.diff \
+  --pr-diff ../artifacts/pr.diff \
+  --mapping router/mapping.json \
+  --output ../artifacts/diff_security_heuristics.json
+```
+
 ## Routing
 
 Findings from Semgrep, Gitleaks, and diff heuristics are mapped to agents via `router/mapping.json`. The router loads **only** the selected agent files to minimize token usage.

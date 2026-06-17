@@ -45,7 +45,8 @@
       "match": {
         "type": ["sql", "sqli", "injection", "spring-sqli", "formatted-sql", "tainted-sql", "jdbc", "preparedstatement", "possible_sql_injection"],
         "summary": ["sql injection", "sql statement", "prepared statement", "dynamic sql", "raw sql"]
-      }
+      },
+      "diff_patterns": ["preparestatement", "callablestatement", "executequery", "executeupdate", "createstatement", " jdbc", "select ", "update ", "insert ", "delete ", " where "]
     },
     {
       "agent": "xss",
@@ -77,7 +78,8 @@
       "match": {
         "type": ["authz", "authorization", "permitall", "access-control", "rbac", "acl", "possible_authz_bypass"],
         "summary": ["authorization", "access control", "permit all", "privilege", "permission", "role bypass", "allow all"]
-      }
+      },
+      "diff_patterns": ["@pathvariable", "accountid", "preauthorize", "hasrole", "hasauthority", "permitall", "skipauthorization", "access denied"]
     }
   ],
   "payload_category_map": {

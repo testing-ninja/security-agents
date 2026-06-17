@@ -78,19 +78,32 @@ def route_finding(
 
 def collect_findings(decision: dict[str, Any], payload: dict[str, Any]) -> list[dict[str, Any]]:
     collected: list[dict[str, Any]] = []
+    seen_keys: set[tuple[Any, ...]] = set()
 
-    for finding in decision.get("cursor_candidates", []):
+    def add_finding(finding: dict[str, Any], source: str) -> None:
         item = dict(finding)
-        item["_source"] = finding.get("tool", "decision")
+        item["_source"] = source
+        key = (
+            item.get("tool"),
+            item.get("type") or item.get("finding"),
+            item.get("file"),
+            item.get("line"),
+        )
+        if key in seen_keys:
+            return
+        seen_keys.add(key)
         collected.append(item)
 
+    # Prefer grouped payload findings (token-efficient)
     for finding in payload.get("findings", []):
-        item = dict(finding)
-        item["_source"] = "cursor_payload"
-        collected.append(item)
+        add_finding(finding, "cursor_payload")
+
+    # Fall back to decision candidates when payload is empty
+    if not payload.get("findings"):
+        for finding in decision.get("cursor_candidates", []):
+            add_finding(finding, "decision")
 
     if not collected:
-        # Allow invocation with PR changes but no candidates — use PR reason
         collected.append({
             "tool": "orchestrator",
             "type": "security_relevant_diff",
