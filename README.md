@@ -37,6 +37,7 @@ python3 router/route.py \
 | `selected_agents.json` | Routed agents, matched findings, routing trace |
 | `agent_bundle.md` | Concatenated agent/skill/rule content for Cursor CLI |
 
-## Future
+## Consumed by
 
-This directory is designed to become the standalone repo `testing-ninja/security-agents`.
+- Jenkins PR Security Orchestrator (`Prepare Security Agent` stage)
+- Cursor CLI remediation workflow
